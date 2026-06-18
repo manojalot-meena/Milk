@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>मासिक डेयरी बिलिंग · Qty × Fat × Rate</title>
+    <!-- SheetJS (XLSX) & html2pdf (PDF) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI',Roboto,system-ui,sans-serif; }
+        body { background:#eef3f9; display:flex; justify-content:center; align-items:center; min-height:100vh; padding:20px 12px; }
+        .card { max-width:1420px; width:100%; background:white; border-radius:28px; box-shadow:0 20px 40px rgba(0,0,0,0.06); padding:28px 30px 35px; }
+        h2 { font-size:24px; font-weight:600; color:#1a2b3c; display:flex; align-items:center; gap:12px; border-bottom:2px solid #e0e8f0; padding-bottom:16px; margin-bottom:20px; flex-wrap:wrap; }
+        h2 i { color:#1f6dc6; }
+        .flex-row { display:flex; flex-wrap:wrap; align-items:center; gap:10px 18px; }
+
+        /* party selector */
+        .party-selector { background:#f2f7fe; padding:10px 20px; border-radius:60px; border:1px solid #d0dfef; display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:14px; }
+        .party-selector label { font-weight:600; color:#1a3149; }
+        .party-selector select, .party-selector input { padding:7px 14px; border-radius:40px; border:1px solid #c0d2e6; background:white; font-weight:500; min-width:130px; }
+        .party-selector select:focus, .party-selector input:focus { outline:2px solid #1f6dc6; border-color:transparent; }
+        .btn-sm { padding:7px 18px; border-radius:40px; border:none; background:#1f6dc6; color:white; font-weight:600; cursor:pointer; transition:0.15s; display:inline-flex; align-items:center; gap:7px; font-size:14px; }
+        .btn-sm:hover { background:#0f4f94; }
+        .btn-sm-outline { background:transparent; color:#1f6dc6; border:1px solid #b4c9e0; }
+        .btn-sm-outline:hover { background:#e3edf8; }
+
+        /* info grid */
+        .info-grid { display:grid; grid-template-columns:1fr 1fr; gap:18px 36px; background:#f8faff; padding:16px 22px; border-radius:20px; margin:14px 0 18px; border:1px solid #e0e9f2; }
+        .info-col { display:flex; flex-direction:column; gap:5px; }
+        .info-row { display:flex; align-items:center; flex-wrap:wrap; gap:4px 10px; border-bottom:1px dashed #dce3ec; padding-bottom:4px; }
+        .info-row:last-child { border-bottom:none; padding-bottom:0; }
+        .label { font-weight:600; color:#1a2f44; min-width:100px; }
+        .label i { width:18px; color:#1f6dc6; margin-right:4px; }
+        .editable-value { background:white; padding:4px 12px; border-radius:30px; border:1px solid #cbd8e8; font-weight:500; min-width:130px; }
+        .editable-value:focus { outline:2px solid #1f6dc6; border-color:transparent; }
+        .billing-month-row { background:#e3edf8; padding:4px 16px; border-radius:60px; display:inline-flex; align-items:center; gap:8px; font-weight:500; border:1px solid #b8cfe3; }
+        .billing-month-row input { border:none; background:transparent; font-weight:600; width:110px; text-align:center; }
+
+        /* fixed qty display */
+        .fixed-qty-box { background:#eaf3fc; padding:6px 20px; border-radius:60px; display:inline-flex; align-items:center; gap:12px; border:1px solid #b8cfe3; }
+        .fixed-qty-box label { font-weight:600; color:#1a3149; }
+        .fixed-qty-box input { border:none; background:white; padding:4px 12px; border-radius:30px; width:80px; text-align:center; font-weight:600; border:1px solid #c0d2e6; }
+
+        /* table */
+        .table-wrapper { overflow-x:auto; margin:12px 0 16px; border-radius:18px; border:1px solid #dbe3ee; }
+        table { width:100%; border-collapse:collapse; font-size:13.5px; min-width:1020px; }
+        th { background:#eaf0f8; color:#1a314a; font-weight:600; padding:10px 3px; text-align:center; border-bottom:2px solid #c8d6e6; }
+        td { padding:5px 2px; text-align:center; border-bottom:1px solid #e3eaf2; background:white; }
+        td input, td select { width:100%; padding:5px 2px; border:1px solid #d6e0ec; border-radius:10px; background:white; font-size:13px; text-align:center; font-weight:500; }
+        td input:focus { outline:2px solid #1f6dc6; border-color:transparent; }
+        td input[type="number"] { -moz-appearance:textfield; }
+        td input[type="number"]::-webkit-outer-spin-button,
+        td input[type="number"]::-webkit-inner-spin-button { -webkit-appearance:none; }
+        .date-col input { border:none; background:transparent; font-weight:600; width:70px; }
+        .total-row td { background:#f0f5fe; font-weight:700; border-top:2px solid #9bb3d0; padding:8px 3px; }
+        .total-row input { background:#f0f5fe; font-weight:700; border:none; pointer-events:none; }
+        .qty-input { background:#fff9e6 !important; border:2px solid #f5c542 !important; }
+        .amount-input { background:#e8f5e9 !important; font-weight:700; color:#1e5a2a; }
+
+        /* form section */
+        .form-section { background:#f8fcff; padding:14px 20px; border-radius:24px; border:1px solid #dfe9f2; margin-top:12px; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px 16px; }
+        .form-group { display:flex; align-items:center; gap:5px 12px; flex-wrap:wrap; }
+        .form-group label { font-weight:600; color:#1a3149; font-size:14px; }
+        .form-group label i { color:#1f6dc6; width:16px; }
+        .form-group input { padding:5px 12px; border:1px solid #cbdae9; border-radius:40px; min-width:70px; font-size:14px; }
+        .btn-group { display:flex; flex-wrap:wrap; gap:8px; }
+        .btn { background:#1a4f7a; border:none; color:white; padding:8px 20px; border-radius:60px; font-weight:600; font-size:14px; display:inline-flex; align-items:center; gap:7px; cursor:pointer; transition:0.15s; border:1px solid #1a4f7a; }
+        .btn i { font-size:14px; }
+        .btn:hover { background:#0f3b60; transform:scale(1.01); }
+        .btn-outline { background:transparent; color:#1a4f7a; border:1px solid #b4c9e0; }
+        .btn-outline:hover { background:#e3edf8; }
+        .remark { background:#e7eff8; padding:4px 16px; border-radius:40px; font-weight:500; color:#1f4466; font-size:13px; }
+
+        .monthly-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px 16px; background:#f0f6fe; padding:8px 18px; border-radius:60px; border:1px solid #d4e2f0; margin-top:10px; }
+        .monthly-actions label { font-weight:600; color:#1a3149; font-size:14px; }
+
+        .formula-badge { background:#1a4f7a; color:white; padding:4px 18px; border-radius:40px; font-size:13px; font-weight:600; }
+        .formula-badge i { margin-right:6px; }
+
+        @media (max-width:780px) { .info-grid { grid-template-columns:1fr; gap:8px; } .card { padding:14px; } }
+        @media print { body{background:white;padding:0;} .card{box-shadow:none;border:none;} .btn,.btn-sm,.btn-group,.no-print{display:none!important;} .form-section{border:1px solid #ccc;} }
+    </style>
+</head>
+<body>
+
+<div class="card" id="billContainer">
+    <h2>
+        <i class="fas fa-calendar-alt"></i> मासिक डेयरी बिलिंग
+        <span style="margin-left:auto; font-size:14px; font-weight:400; color:#3b5d7a;">
+            <i class="fas fa-database"></i> सेव: <span id="saveStatus" style="color:#1f6dc6;">ऑटो</span>
+        </span>
+    </h2>
+
+    <!-- ===== PARTY SELECTOR ===== -->
+    <div class="party-selector">
+        <label><i class="fas fa-users"></i> पार्टी:</label>
+        <select id="partySelect" onchange="switchParty()"></select>
+        <input type="text" id="newPartyName" placeholder="नई पार्टी" style="min-width:120px;">
+        <button class="btn-sm" onclick="addParty()"><i class="fas fa-plus"></i> जोड़ें</button>
+        <button class="btn-sm btn-sm-outline" onclick="deleteParty()"><i class="fas fa-trash-alt"></i> हटाएँ</button>
+        <span style="margin-left:auto; font-size:12px; color:#4a6f8f;"><i class="fas fa-info-circle"></i> ब्राउज़र में सेव</span>
+    </div>
+
+    <!-- ===== FIXED QTY (पूरे महीने के लिए) ===== -->
+    <div style="display:flex; flex-wrap:wrap; align-items:center; gap:12px 24px; margin-bottom:12px; background:#f5faff; padding:8px 20px; border-radius:60px; border:1px solid #d4e2f0;">
+        <span class="fixed-qty-box">
+            <label><i class="fas fa-arrows-alt-h"></i> पूरे माह की Qty (L):</label>
+            <input type="number" step="0.5" id="fixedQty" value="45" oninput="applyFixedQty()">
+        </span>
+        <span style="font-size:13px; color:#3b5d7a;"><i class="fas fa-info-circle"></i> Qty कॉलम में यूजर एंट्री करेगा</span>
+        <span class="formula-badge"><i class="fas fa-calculator"></i> Amount = Qty × Fat × Rate</span>
+    </div>
+
+    <!-- ===== HEADER INFO ===== -->
+    <div class="info-grid">
+        <div class="info-col">
+            <div class="info-row"><span class="label"><i class="fas fa-user-tie"></i>Proprietor</span><input class="editable-value" type="text" id="propName" value="श्री राम डेयरी"></div>
+            <div class="info-row"><span class="label"><i class="fas fa-map-pin"></i>Address</span><input class="editable-value" type="text" id="propAddr" value="42, मिल्क कॉलोनी, जयपुर"></div>
+            <div class="info-row"><span class="label"><i class="fas fa-phone-alt"></i>Mobile</span><input class="editable-value" type="text" id="propMobile" value="+91 98765 43210"></div>
+        </div>
+        <div class="info-col">
+            <div class="info-row"><span class="label"><i class="fas fa-user"></i>Customer</span><input class="editable-value" type="text" id="custName" value="मोहन लाल & सन्स"></div>
+            <div class="info-row"><span class="label"><i class="fas fa-home"></i>Address</span><input class="editable-value" type="text" id="custAddr" value="ए-12, न्यू मंडी, दिल्ली"></div>
+            <div class="info-row"><span class="label"><i class="fas fa-mobile-alt"></i>Mobile</span><input class="editable-value" type="text" id="custMobile" value="+91 99887 66554"></div>
+            <div class="info-row" style="border-bottom:none; padding-top:4px;">
+                <span class="billing-month-row"><i class="far fa-calendar-alt"></i> Billing Month: <input type="text" id="billingMonth" value="Feb. 2026"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== TABLE ===== -->
+    <div class="table-wrapper">
+        <table id="milkTable">
+            <thead>
+                <tr><th rowspan="2" style="min-width:60px;">Date</th>
+                    <th colspan="4" style="background:#dfebf7;">Morning (सुबह)</th>
+                    <th colspan="4" style="background:#dfebf7;">Evening (शाम)</th></tr>
+                <tr><th>Qty (L)</th><th>Fat %</th><th>Rate (₹/L)</th><th>Amount (₹)</th>
+                    <th>Qty (L)</th><th>Fat %</th><th>Rate (₹/L)</th><th>Amount (₹)</th></tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+            <tfoot><tr class="total-row" id="totalRow">
+                <td style="font-weight:700; background:#eaf1fb;">TOTAL</td>
+                <td><input id="totalQtyM" value="0" readonly></td>
+                <td><input id="totalFatM" value="0" readonly></td>
+                <td><input id="totalRateM" value="0" readonly></td>
+                <td><input id="totalAmtM" value="0" readonly></td>
+                <td><input id="totalQtyE" value="0" readonly></td>
+                <td><input id="totalFatE" value="0" readonly></td>
+                <td><input id="totalRateE" value="0" readonly></td>
+                <td><input id="totalAmtE" value="0" readonly></td>
+            </tr></tfoot>
+        </table>
+    </div>
+
+    <!-- ===== FORM SECTION ===== -->
+    <div class="form-section">
+        <div style="display:flex; flex-wrap:wrap; gap:6px 18px; align-items:center;">
+            <div class="form-group">
+                <label><i class="fas fa-calendar-plus"></i> Date</label>
+                <input type="date" id="formDate" value="2026-02-18" style="min-width:120px;">
+            </div>
+            <div class="form-group">
+                <label><i class="fas fa-flask"></i> Fat %</label>
+                <input type="number" step="0.1" id="formFat" value="4.2" style="min-width:60px;" oninput="applyFixedQty()">
+            </div>
+            <div class="form-group">
+                <label><i class="fas fa-rupee-sign"></i> Rate/L</label>
+                <input type="number" step="0.5" id="formRate" value="68" style="min-width:60px;" oninput="applyFixedQty()">
+            </div>
+            <span class="remark"><i class="far fa-clock"></i> शाम 6:00</span>
+        </div>
+        <div class="btn-group">
+            <button class="btn" onclick="addRow()"><i class="fas fa-plus-circle"></i> पंक्ति</button>
+            <button class="btn" onclick="updateTotals()"><i class="fas fa-sync-alt"></i> टोटल</button>
+            <button class="btn" onclick="downloadExcel()"><i class="fas fa-file-excel"></i> Excel</button>
+            <button class="btn" onclick="downloadPDF()"><i class="fas fa-file-pdf"></i> PDF</button>
+        </div>
+    </div>
+
+    <!-- ===== MONTHLY ACTIONS ===== -->
+    <div class="monthly-actions">
+        <label><i class="fas fa-calendar-check"></i> पूरे महीने की एंट्री:</label>
+        <input type="month" id="monthPicker" value="2026-02" style="padding:5px 12px; border-radius:40px; border:1px solid #c0d2e6; font-weight:500;">
+        <button class="btn-sm" onclick="generateMonthEntries()"><i class="fas fa-magic"></i> महीना भरें</button>
+        <button class="btn-sm btn-sm-outline" onclick="clearMonthEntries()"><i class="fas fa-eraser"></i> साफ़ करें</button>
+        <span style="font-size:12px; color:#3b5d7a; margin-left:4px;"><i class="fas fa-info-circle"></i> Qty = यूजर एंट्री</span>
+    </div>
+
+    <div style="margin-top:12px; font-size:12px; color:#4c6f90; display:flex; justify-content:flex-end; gap:14px; border-top:1px solid #e4ebf3; padding-top:8px;">
+        <span><i class="fas fa-save"></i> ऑटो-सेव</span>
+        <span><i class="fas fa-calculator"></i> Amount = Qty × Fat × Rate</span>
+        <span><i class="fas fa-pencil-alt"></i> Qty कॉलम में यूजर एंट्री</span>
+    </div>
+</div>
+
+<script>
+    // ======================== STORAGE =========================
+    const STORAGE_KEY = 'monthlyMilkBillFormula_v4';
+
+    function getStorage() {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) try { return JSON.parse(raw); } catch(e) {}
+        return null;
+    }
+
+    function setStorage(data) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        document.getElementById('saveStatus').textContent = '✅ सेव';
+        setTimeout(() => { document.getElementById('saveStatus').textContent = 'ऑटो'; }, 1000);
+    }
+
+    // ======================== DATA MODEL ======================
+    let currentParty = '';
+    let allData = {};
+
+    function getDefaultParty(name) {
+        return {
+            partyName: name,
+            proprietor: { name: 'श्री राम डेयरी', address: '42, मिल्क कॉलोनी, जयपुर', mobile: '+91 98765 43210' },
+            customer: { name: 'मोहन लाल & सन्स', address: 'ए-12, न्यू मंडी, दिल्ली', mobile: '+91 99887 66554' },
+            billingMonth: 'Feb. 2026',
+            fixedQty: 45,
+            rows: [
+                ['01/02/26', 45, 4.2, 68, 0, 45, 4.0, 68, 0],
+                ['02/02/26', 45, 4.5, 68, 0, 45, 4.3, 68, 0],
+                ['03/02/26', 45, 0, 0, 0, 45, 0, 0, 0],
+                ['04/02/26', 45, 4.0, 70, 0, 45, 3.8, 70, 0],
+                ['05/02/26', 45, 4.4, 67, 0, 45, 4.2, 67, 0]
+            ]
+        };
+    }
+
+    function loadAllData() {
+        const stored = getStorage();
+        if (stored && typeof stored === 'object' && Object.keys(stored).length > 0) {
+            allData = stored;
+        } else {
+            const defaultName = 'मोहन लाल & सन्स';
+            allData = {};
+            allData[defaultName] = getDefaultParty(defaultName);
+            const p2 = 'श्याम डेयरी';
+            const d2 = getDefaultParty(p2);
+            d2.customer.name = 'श्याम सुंदर';
+            d2.customer.address = 'बी-23, सब्जी मंडी, दिल्ली';
+            d2.customer.mobile = '+91 98765 11111';
+            d2.fixedQty = 35;
+            d2.rows = [['01/02/26', 35, 3.8, 65, 0, 35, 3.6, 65, 0],
+                       ['02/02/26', 35, 4.0, 65, 0, 35, 3.9, 65, 0]];
+            allData[p2] = d2;
+            setStorage(allData);
+        }
+        populatePartySelect();
+    }
+
+    function populatePartySelect() {
+        const sel = document.getElementById('partySelect');
+        const currentVal = sel.value;
+        sel.innerHTML = '';
+        const names = Object.keys(allData);
+        if (names.length === 0) {
+            const def = 'डिफ़ॉल्ट पार्टी';
+            allData[def] = getDefaultParty(def);
+            setStorage(allData);
+            names.push(def);
+        }
+        names.forEach(n => {
+            const opt = document.createElement('option');
+            opt.value = n;
+            opt.textContent = n;
+            sel.appendChild(opt);
+        });
+        if (currentVal && names.includes(currentVal)) sel.value = currentVal;
+        else sel.value = names[0];
+        currentParty = sel.value;
+        loadParty();
+    }
+
+    // ======================== LOAD / SAVE =====================
+    function loadParty() {
+        const sel = document.getElementById('partySelect');
+        const name = sel.value;
+        if (!name || !allData[name]) return;
+        currentParty = name;
+        const data = allData[name];
+        document.getElementById('propName').value = data.proprietor.name || '';
+        document.getElementById('propAddr').value = data.proprietor.address || '';
+        document.getElementById('propMobile').value = data.proprietor.mobile || '';
+        document.getElementById('custName').value = data.customer.name || '';
+        document.getElementById('custAddr').value = data.customer.address || '';
+        document.getElementById('custMobile').value = data.customer.mobile || '';
+        document.getElementById('billingMonth').value = data.billingMonth || 'Feb. 2026';
+        document.getElementById('fixedQty').value = data.fixedQty || 45;
+        renderRows(data.rows || []);
+        applyFixedQty();
+        updateTotals();
+        document.getElementById('saveStatus').textContent = '✅ लोड';
+        setTimeout(() => { document.getElementById('saveStatus').textContent = 'ऑटो'; }, 700);
+    }
+
+    function saveCurrentParty() {
+        if (!currentParty || !allData[currentParty]) return;
+        const data = allData[currentParty];
+        data.proprietor = {
+            name: document.getElementById('propName').value,
+            address: document.getElementById('propAddr').value,
+            mobile: document.getElementById('propMobile').value
+        };
+        data.customer = {
+            name: document.getElementById('custName').value,
+            address: document.getElementById('custAddr').value,
+            mobile: document.getElementById('custMobile').value
+        };
+        data.billingMonth = document.getElementById('billingMonth').value;
+        data.fixedQty = parseFloat(document.getElementById('fixedQty').value) || 0;
+        data.rows = collectRows();
+        setStorage(allData);
+    }
+
+    function collectRows() {
+        const tbody = document.getElementById('tableBody');
+        const rows = tbody.querySelectorAll('tr');
+        const result = [];
+        rows.forEach(tr => {
+            const inputs = tr.querySelectorAll('td input');
+            if (inputs.length < 9) return;
+            const row = [];
+            for (let i = 0; i < 9; i++) {
+                let val = inputs[i].value.trim();
+                if (i === 0) row.push(val);
+                else row.push(parseFloat(val) || 0);
+            }
+            result.push(row);
+        });
+        return result;
+    }
+
+    function renderRows(rowsData) {
+        const tbody = document.getElementById('tableBody');
+        tbody.innerHTML = '';
+        if (!rowsData || rowsData.length === 0) {
+            rowsData = [['', 0, 0, 0, 0, 0, 0, 0, 0]];
+        }
+        rowsData.forEach(row => {
+            const tr = document.createElement('tr');
+            let html = `<td class="date-col"><input type="text" value="${row[0] || ''}" style="border:none;background:transparent;font-weight:600;width:70px;" oninput="onDataChange()"></td>`;
+            for (let i = 1; i < row.length; i++) {
+                const val = row[i] || 0;
+                const step = (i === 2 || i === 6) ? '0.1' : (i === 3 || i === 7 ? '0.5' : '1');
+                const isQty = (i === 1 || i === 5);
+                const isAmount = (i === 4 || i === 8);
+                let cls = '';
+                if (isQty) cls = 'qty-input';
+                if (isAmount) cls = 'amount-input';
+                html += `<td><input type="number" step="${step}" value="${val}" class="${cls}" oninput="onCellChange(this)" onfocus="this.select()"></td>`;
+            }
+            tr.innerHTML = html;
+            tbody.appendChild(tr);
+        });
+        setTimeout(() => applyFixedQty(), 50);
+    }
+
+    // ===== FIXED QTY LOGIC =====
+    function applyFixedQty() {
+        const fixedQty = parseFloat(document.getElementById('fixedQty').value) || 0;
+        const rows = document.querySelectorAll('#tableBody tr');
+        rows.forEach(tr => {
+            const inputs = tr.querySelectorAll('td input');
+            if (inputs.length < 9) return;
+            // Morning Qty (index 1) and Evening Qty (index 5)
+            if (inputs[1] && !inputs[1].dataset.userEdited) {
+                inputs[1].value = fixedQty;
+            }
+            if (inputs[5] && !inputs[5].dataset.userEdited) {
+                inputs[5].value = fixedQty;
+            }
+        });
+        recalcAllAmounts();
+        updateTotals();
+        saveCurrentParty();
+    }
+
+    // ===== CELL CHANGE =====
+    function onCellChange(el) {
+        const tr = el.closest('tr');
+        const inputs = tr.querySelectorAll('td input');
+        if (inputs.length < 9) return;
+        const idx = Array.from(tr.querySelectorAll('td input')).indexOf(el);
+        
+        // If user edits Qty, mark it as user-edited so fixed qty doesn't override
+        if (idx === 1 || idx === 5) {
+            el.dataset.userEdited = 'true';
+        }
+        
+        // If user edits Fat or Rate, recalc amount for that row
+        if (idx === 2 || idx === 3 || idx === 6 || idx === 7 || idx === 1 || idx === 5) {
+            recalcRowAmount(tr);
+        }
+        updateTotals();
+        saveCurrentParty();
+    }
+
+    function recalcRowAmount(tr) {
+        const inputs = tr.querySelectorAll('td input');
+        if (inputs.length < 9) return;
+        // Morning
+        const qM = parseFloat(inputs[1].value) || 0;
+        const fM = parseFloat(inputs[2].value) || 0;
+        const rM = parseFloat(inputs[3].value) || 0;
+        inputs[4].value = (qM * fM * rM).toFixed(2);
+        // Evening
+        const qE = parseFloat(inputs[5].value) || 0;
+        const fE = parseFloat(inputs[6].value) || 0;
+        const rE = parseFloat(inputs[7].value) || 0;
+        inputs[8].value = (qE * fE * rE).toFixed(2);
+    }
+
+    function recalcAllAmounts() {
+        const rows = document.querySelectorAll('#tableBody tr');
+        rows.forEach(tr => recalcRowAmount(tr));
+    }
+
+    function onDataChange() {
+        recalcAllAmounts();
+        updateTotals();
+        saveCurrentParty();
+    }
+
+    // ===== add row =====
+    function addRow() {
+        const tbody = document.getElementById('tableBody');
+        const tr = document.createElement('tr');
+        const dateVal = document.getElementById('formDate').value || '2026-02-18';
+        const fatVal = document.getElementById('formFat').value || 4.2;
+        const rateVal = document.getElementById('formRate').value || 68;
+        const fixedQty = parseFloat(document.getElementById('fixedQty').value) || 0;
+        const emptyRow = [dateVal, fixedQty, parseFloat(fatVal), parseFloat(rateVal), 0, fixedQty, parseFloat(fatVal), parseFloat(rateVal), 0];
+        let html = `<td class="date-col"><input type="text" value="${emptyRow[0]}" style="border:none;background:transparent;font-weight:600;width:70px;" oninput="onDataChange()"></td>`;
+        for (let i = 1; i < emptyRow.length; i++) {
+            const val = emptyRow[i];
+            const step = (i === 2 || i === 6) ? '0.1' : (i === 3 || i === 7 ? '0.5' : '1');
+            const isQty = (i === 1 || i === 5);
+            const isAmount = (i === 4 || i === 8);
+            let cls = '';
+            if (isQty) cls = 'qty-input';
+            if (isAmount) cls = 'amount-input';
+            html += `<td><input type="number" step="${step}" value="${val}" class="${cls}" oninput="onCellChange(this)" onfocus="this.select()"></td>`;
+        }
+        tr.innerHTML = html;
+        tbody.appendChild(tr);
+        recalcAllAmounts();
+        updateTotals();
+        saveCurrentParty();
+    }
+
+    // ===== party management =====
+    function addParty() {
+        const nameInput = document.getElementById('newPartyName');
+        const name = nameInput.value.trim();
+        if (!name) { alert('कृपया पार्टी का नाम दर्ज करें'); return; }
+        if (allData[name]) { alert('यह पार्टी पहले से मौजूद है'); return; }
+        allData[name] = getDefaultParty(name);
+        setStorage(allData);
+        populatePartySelect();
+        document.getElementById('partySelect').value = name;
+        loadParty();
+        nameInput.value = '';
+    }
+
+    function deleteParty() {
+        const sel = document.getElementById('partySelect');
+        const name = sel.value;
+        if (!name) return;
+        if (!confirm(`"${name}" को हटाना है?`)) return;
+        delete allData[name];
+        setStorage(allData);
+        populatePartySelect();
+        loadParty();
+    }
+
+    function switchParty() {
+        saveCurrentParty();
+        loadParty();
+    }
+
+    // ===== totals =====
+    function updateTotals() {
+        const rows = document.querySelectorAll('#tableBody tr');
+        let sumQtyM=0, sumFatM=0, sumRateM=0, sumAmtM=0;
+        let sumQtyE=0, sumFatE=0, sumRateE=0, sumAmtE=0;
+        let cntM=0, cntE=0;
+        rows.forEach(tr => {
+            const inputs = tr.querySelectorAll('td input');
+            if (inputs.length < 9) return;
+            const qM = parseFloat(inputs[1].value) || 0;
+            const fM = parseFloat(inputs[2].value) || 0;
+            const rM = parseFloat(inputs[3].value) || 0;
+            const aM = parseFloat(inputs[4].value) || 0;
+            const qE = parseFloat(inputs[5].value) || 0;
+            const fE = parseFloat(inputs[6].value) || 0;
+            const rE = parseFloat(inputs[7].value) || 0;
+            const aE = parseFloat(inputs[8].value) || 0;
+            sumQtyM += qM; sumFatM += fM; sumRateM += rM; sumAmtM += aM;
+            sumQtyE += qE; sumFatE += fE; sumRateE += rE; sumAmtE += aE;
+            if (qM > 0 || fM > 0) cntM++;
+            if (qE > 0 || fE > 0) cntE++;
+        });
+        document.getElementById('totalQtyM').value = sumQtyM.toFixed(1);
+        document.getElementById('totalFatM').value = cntM ? (sumFatM/cntM).toFixed(2) : '0.00';
+        document.getElementById('totalRateM').value = cntM ? (sumRateM/cntM).toFixed(2) : '0.00';
+        document.getElementById('totalAmtM').value = sumAmtM.toFixed(2);
+        document.getElementById('totalQtyE').value = sumQtyE.toFixed(1);
+        document.getElementById('totalFatE').value = cntE ? (sumFatE/cntE).toFixed(2) : '0.00';
+        document.getElementById('totalRateE').value = cntE ? (sumRateE/cntE).toFixed(2) : '0.00';
+        document.getElementById('totalAmtE').value = sumAmtE.toFixed(2);
+    }
+
+    // ===== MONTHLY ENTRIES =====
+    function generateMonthEntries() {
+        const monthVal = document.getElementById('monthPicker').value;
+        if (!monthVal) { alert('कृपया महीना चुनें'); return; }
+        const [year, month] = monthVal.split('-').map(Number);
+        const daysInMonth = new Date(year, month, 0).getDate();
+        const rows = [];
+        const fatVal = parseFloat(document.getElementById('formFat').value) || 4.2;
+        const rateVal = parseFloat(document.getElementById('formRate').value) || 68;
+        const fixedQty = parseFloat(document.getElementById('fixedQty').value) || 0;
+        for (let d = 1; d <= daysInMonth; d++) {
+            const dateStr = String(d).padStart(2, '0') + '/' + String(month).padStart(2, '0') + '/' + String(year).slice(2);
+            rows.push([dateStr, fixedQty, fatVal, rateVal, 0, fixedQty, fatVal, rateVal, 0]);
+        }
+        renderRows(rows);
+        recalcAllAmounts();
+        updateTotals();
+        saveCurrentParty();
+        document.getElementById('saveStatus').textContent = '✅ ' + daysInMonth + ' दिन';
+        setTimeout(() => { document.getElementById('saveStatus').textContent = 'ऑटो'; }, 1500);
+    }
+
+    function clearMonthEntries() {
+        if (!confirm('सभी पंक्तियाँ साफ़ करें?')) return;
+        const fixedQty = parseFloat(document.getElementById('fixedQty').value) || 0;
+        renderRows([['', fixedQty, 0, 0, 0, fixedQty, 0, 0, 0]]);
+        recalcAllAmounts();
+        updateTotals();
+        saveCurrentParty();
+    }
+
+    // ===== DOWNLOADS =====
+    function downloadExcel() {
+        saveCurrentParty();
+        recalcAllAmounts();
+        updateTotals();
+        const table = document.getElementById('milkTable');
+        const ws = XLSX.utils.table_to_sheet(table);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'MilkBill');
+        const meta = [
+            ['Party', currentParty],
+            ['Proprietor', document.getElementById('propName').value],
+            ['Address', document.getElementById('propAddr').value],
+            ['Mobile', document.getElementById('propMobile').value],
+            ['Customer', document.getElementById('custName').value],
+            ['Customer Address', document.getElementById('custAddr').value],
+            ['Customer Mobile', document.getElementById('custMobile').value],
+            ['Billing Month', document.getElementById('billingMonth').value],
+            ['Fixed Qty (L)', document.getElementById('fixedQty').value],
+            ['Formula', 'Amount = Qty × Fat × Rate']
+        ];
+        const wsMeta = XLSX.utils.aoa_to_sheet(meta);
+        XLSX.utils.book_append_sheet(wb, wsMeta, 'Info');
+        XLSX.writeFile(wb, `Milk_Bill_${currentParty}.xlsx`);
+    }
+
+    function downloadPDF() {
+        saveCurrentParty();
+        recalcAllAmounts();
+        updateTotals();
+        const element = document.getElementById('billContainer');
+        const btns = document.querySelectorAll('.btn, .btn-sm, .btn-group, .monthly-actions .btn-sm');
+        btns.forEach(b => b.style.display = 'none');
+        const opt = {
+            margin: [0.5, 0.5, 0.5, 0.5],
+            filename: `Milk_Bill_${currentParty}_A4_Landscape.pdf`,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2, letterRendering: true, useCORS: true, logging: false },
+            jsPDF: { unit: 'in', format: 'a4', orientation: 'landscape' }
+        };
+        html2pdf().set(opt).from(element).save().then(() => {
+            btns.forEach(b => b.style.display = '');
+        }).catch(() => {
+            btns.forEach(b => b.style.display = '');
+        });
+    }
+
+    // auto-save
+    document.addEventListener('input', function(e) {
+        if (e.target.closest('#billContainer')) {
+            if (e.target.closest('.party-selector')) return;
+            if (e.target.id === 'newPartyName') return;
+            if (e.target.id === 'fixedQty') {
+                // remove user-edit flag from all qty fields when fixed qty changes
+                document.querySelectorAll('.qty-input').forEach(el => {
+                    delete el.dataset.userEdited;
+                });
+                applyFixedQty();
+                return;
+            }
+            clearTimeout(window._saveTimer);
+            window._saveTimer = setTimeout(() => {
+                saveCurrentParty();
+                document.getElementById('saveStatus').textContent = '💾 सेव';
+                setTimeout(() => { document.getElementById('saveStatus').textContent = 'ऑटो'; }, 800);
+            }, 400);
+        }
+    });
+
+    // ===== INIT =====
+    loadAllData();
+    setTimeout(() => applyFixedQty(), 100);
+</script>
+</body>
+</html>
