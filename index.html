@@ -5,26 +5,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PMFBY Test Portal</title>
     <style>
-        body { font-family: Arial, sans-serif; padding: 20px; background: #f4f4f9; }
+        body { font-family: Arial, sans-serif; padding: 15px; background: #f4f4f9; margin: 0; }
         .container { max-width: 500px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
         .form-group { margin-bottom: 15px; }
-        label { display: block; font-weight: bold; margin-bottom: 5px; }
-        input { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
-        button { background: #28a745; color: white; padding: 10px; border: none; border-radius: 4px; cursor: pointer; width: 100%; font-size: 16px; margin-top: 10px;}
+        label { display: block; font-weight: bold; margin-bottom: 5px; color: #333; }
+        input { width: 100%; padding: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; }
+        button { background: #28a745; color: white; padding: 12px; border: none; border-radius: 4px; cursor: pointer; width: 100%; font-size: 16px; margin-top: 10px; font-weight: bold;}
         button:hover { background: #218838; }
-        .survey-row { display: flex; gap: 10px; margin-bottom: 10px; border: 1px dashed #ccc; padding: 10px; background: #fafafa;}
-        #status { margin-top: 15px; font-weight: bold; color: blue; text-align: center;}
+        .survey-row { display: flex; gap: 10px; margin-bottom: 10px; border: 1px dashed #ccc; padding: 10px; background: #fafafa; border-radius: 4px;}
+        .survey-row input { width: 50%; }
+        #status { margin-top: 15px; font-weight: bold; color: blue; text-align: center; font-size: 16px;}
+        h2 { text-align: center; color: #333; }
     </style>
 </head>
-    <body>
-    <div id="automation-box"></div> <!-- यह नई लाइन जोड़ें -->
-    <div class="container">
+<body>
+
+    <!-- ऑटोमेशन बटन इस खाली डिब्बे में आएगा -->
+    <div id="automation-box" style="max-width: 500px; margin: 0 auto;"></div>
+
     <div class="container">
         <h2>PMFBY Mock Portal</h2>
         
         <div class="form-group">
             <label>बैंक खाता संख्या (Bank Account)</label>
-            <!-- असली पोर्टल में यहाँ खाता डालते ही नाम आ जाता है -->
             <input type="text" id="accountNo" placeholder="यहाँ खाता संख्या डालें">
         </div>
 
@@ -33,15 +36,16 @@
             <input type="text" id="farmerName" readonly placeholder="खाता संख्या डालने पर अपने आप भरेगा">
         </div>
 
-        <hr>
-        <h3>सर्वे नंबर (Survey Numbers)</h3>
+        <hr style="border: 1px solid #eee; margin: 20px 0;">
+        <h3 style="margin-top: 0;">सर्वे नंबर (Survey Numbers)</h3>
+        
         <div id="surveyContainer">
             <!-- सर्वे नंबर के रो यहाँ आएंगे -->
         </div>
         
         <button type="button" id="addSurveyBtn" style="background: #007bff;">+ नया सर्वे नंबर जोड़ें</button>
         
-        <hr>
+        <hr style="border: 1px solid #eee; margin: 20px 0;">
         <button type="button" id="saveBtn">फॉर्म सेव करें (Save)</button>
 
         <div id="status"></div>
@@ -84,6 +88,7 @@
             if(acc && count > 0) {
                 document.getElementById('status').innerText = `✅ सफलतापूर्वक सेव हो गया! (खाता: ${acc}, सर्वे: ${count})`;
                 document.getElementById('status').style.color = "green";
+                
                 // अगले टेस्ट के लिए फॉर्म खाली करें
                 document.getElementById('accountNo').value = "";
                 document.getElementById('farmerName').value = "";
